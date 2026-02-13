@@ -1,0 +1,6 @@
+# ignore full dataset
+data/wav/wav_split_1m/*.wav
+data/wav/wav_split_2m/*.wav
+
+# keep only samples
+!data_sample/**
