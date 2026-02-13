@@ -32,6 +32,8 @@
 
 > 建议：确保所有文件名都包含 `"{azimuth}d{distance}m_{index}.wav"` 这种格式，以避免角度解析歧义。
 
+关于完整数据：公开于https://pan.baidu.com/s/wwwhy
+
 ---
 
 ## 2. 阵列与实验配置（来自 measure.m）
@@ -138,19 +140,15 @@ Stable+ 的“稳定性增强”（脚本注释明确指出避免“过度端射
 ```matlab
 audio_dir = "...\wav_split_1m";   % 你的 wav 数据目录
 out_dir   = "...\End-Fire";       % 输出结果目录
-
-
-
+```
 
 ---
 
-
-
-\## 5. 目录结构（Directory layout）
+## 5. 目录结构（Directory layout）
 
 下面是一个推荐目录结构（你也可以按现有结构上传，但建议保持清晰）：
 
-
+```text
 
 ├── data/
 
@@ -171,128 +169,73 @@ out_dir   = "...\End-Fire";       % 输出结果目录
 ├── LICENSE
 
 └── README.md
-
-
+```
 
 > 如果你不想移动文件，也可以在 `measure.m` 里配置数据路径；README 里给了通用的运行方式。
 
+---
 
+## 6. 环境依赖（Requirements）
+
+- MATLAB：建议 R2025
+- 可能用到的工具箱（按需填写）：
 
 ---
 
+## 7. 快速开始（Quick Start）
 
-
-\## 6. 环境依赖（Requirements）
-
-\- MATLAB：\*\*建议 R20xx\*\*（TODO：写你实际使用版本，例如 R2021a）
-
-\- 可能用到的工具箱（按需填写）：
-
-&nbsp; - Signal Processing Toolbox（TODO）
-
-&nbsp; - Phased Array System Toolbox（TODO）
-
-&nbsp; - Statistics and Machine Learning Toolbox（TODO）
-
-
-
----
-
-
-
-\## 7. 快速开始（Quick Start）
-
-\### 7.1 获取代码
+### 7.1 获取代码
 
 ```bash
 
 git clone https://github.com/<your-username>/<repo-name>.git
 
 cd <repo-name>
+```
 
-
-
-\### 7.2 在 MATLAB 中运行
-
-
+### 7.2 在 MATLAB 中运行
 
 * 打开 MATLAB，将当前路径切到仓库根目录（或 matlab/ 目录）
 
-
-
 * 添加路径：
-
-
 
 ```bash
 
 addpath(genpath(pwd));
-
-
+```
 
 * 运行主评测脚本measure.m
 
-
-
 如果 measure.m 需要你配置音频路径/输出路径，通常在脚本开头会有类似 DATA\_DIR / OUT\_DIR 的变量；请按你的实际目录修改。
 
-
-
 ---
 
+## 8.实验流程建议（Suggested pipeline）
 
-
-\## 8.实验流程建议（Suggested pipeline）
-
-\### 8.1 一个典型的流程如下（按需执行）：
-
+### 8.1 一个典型的流程如下（按需执行）：
 算法评测（measure.m） --> 结果格式转换（如果 measure 输出为 CSV， csv2mat.m） --> 全局统计(stas\_result.m) --> 数据可视化 (draw.m)
 
-
-
 ---
 
-
-
-\## 9. 输出与指标（Outputs \& metrics）
-
-
+## 9. 输出与指标（Outputs \& metrics）
 
 本仓库的评测通常会关心（示例，可按你脚本实际输出调整）：
 
-
-
 角度误差：|θ\_est - θ\_gt|
-
-
 
 平均/中位数误差、RMSE
 
-
-
 命中率：误差 ≤ 某阈值（例如 5° / 10°）
-
-
 
 端射区域 vs 非端射区域的性能差异曲线/热力图
 
-
-
 ---
 
-
-
-\## 10. 联系方式（Contact）
-
-
+## 10. 联系方式（Contact）
 
 Maintainer: WwHhYy666
 
-
-
 Email: 2540160476@qq.com,3191479712@qq.com
-
-
 
 Issues: 欢迎在 GitHub Issues 中反馈问题/复现实验差异/改进建议
 
