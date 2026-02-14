@@ -32,7 +32,7 @@
 
 > 建议：确保所有文件名都包含 `"{azimuth}d{distance}m_{index}.wav"` 这种格式，以避免角度解析歧义。
 
-关于完整数据：公开于https://pan.baidu.com/s/wwwhy
+完整数据：通过网盘分享的文件：data 链接: https://pan.baidu.com/s/1cphwmxwBzt-lslcU0amuiQ?pwd=s8z7 提取码: s8z7
 
 ---
 
