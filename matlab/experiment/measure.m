@@ -2,8 +2,8 @@ clear; clc; close all;
 addpath("func");
 
 %% ===================== Path Config =====================
-audio_dir = "D:\acoustic\asl\EXPERIMENT\End-Fire\wav\wav_split_1m";
-out_dir   = "D:\acoustic\asl\EXPERIMENT\End-Fire";
+audio_dir = "D:\acoustic\asl\EXPERIMENT\wav_split_1m";
+out_dir   = "D:\acoustic\asl\EXPERIMENT";
 if ~exist(out_dir, 'dir'), mkdir(out_dir); end
 
 %% ===================== Metric Config =====================
@@ -25,9 +25,13 @@ max_dur_sec = 3.0;   % process first N seconds (set Inf to use full length)
 %% =======================================================
 %% ========== (A) Code1 Config: W-SRP-PHAT + GCC-WLS ======
 %% =======================================================
-c = 343;          % speed of sound (m/s) for W-SRP-PHAT
-T_celsius = 25;   % keep same as gcc_wls_experiment.m
-c_gcc = 331.3 + 0.606*T_celsius;
+T_celsius = 25;       % ambient temperature (C)
+RH_percent = 50;      % relative humidity (%), adjust if known
+P_kPa = 101.325;      % air pressure (kPa)
+c0 = speed_of_sound(T_celsius, RH_percent, P_kPa);
+
+c = c0;               % speed of sound for W-SRP-PHAT
+c_gcc = c0;           % speed of sound for GCC-WLS
 
 % ---- STFT Config (code1) ----
 win_size      = 1024;
@@ -83,7 +87,7 @@ guided_iters = 2;
 
 %% =======================================================
 %% ========== (B) Code2 Config: MVDR/SRP-PHAT ONLY ========
-c2 = 340;               
+c2 = c0;               
 rmic2 = rmic_raw;       
 
 % ---- STFT Config (code2) ----
@@ -1123,4 +1127,19 @@ function [u_meas, w_meas] = guided_pick_and_weight_v3( ...
         u_meas(end+1,1) = u_p; %#ok<AGROW>
         w_meas(end+1,1) = w_p; %#ok<AGROW>
     end
+end
+
+function c = speed_of_sound(T_celsius, RH_percent, P_kPa)
+% Speed of sound in moist air using Cramer (1993) approximation.
+% T_celsius: temperature (C), RH_percent: relative humidity (%), P_kPa: pressure (kPa)
+    T = T_celsius + 273.15;
+    h = max(min(RH_percent, 100), 0) / 100; % clamp to [0,1]
+    P = P_kPa * 10; % kPa -> mbar (hPa)
+
+    % Saturation vapor pressure (mbar) using Buck (1981)
+    e_s = 6.1121 * exp((18.678 - T_celsius/234.5) * (T_celsius/(257.14 + T_celsius)));
+    e = h * e_s; % partial pressure of water vapor (mbar)
+
+    x_w = e / P; % molar fraction of water vapor
+    c = 331.45 * sqrt(1 + (T_celsius / 273.15)) * (1 + 0.51 * x_w);
 end
