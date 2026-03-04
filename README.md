@@ -58,12 +58,14 @@ W-SRP-PHAT and GCC-WLS use **centered coordinates** (minus geometric center); ba
 
 ## 3. Four Algorithm Descriptions (Implementation Details Aligned with measure.m)
 
+> **Baseline Algorithm Reference**: The implementation of **SRP-MVDR** and **SRP-PHAT** baseline algorithms is based on code adapted from the [sound-source-localization-algorithm_DOA_estimation](https://github.com/WenzheLiu-Speech/sound-source-localization-algorithm_DOA_estimation) project. We reimplemented and integrated these methods into our evaluation framework.
+
 ### 3.1 Baseline 1: MVDR Scanning (SRP-MVDR)
 Implementation location: `doa_two_methods_code2(...)` in `measure.m`  
 Core approach:
-- Constructs covariance matrix `Rxx` for each frequency bin
-- Scans azimuth grid `phiV = 0:0.2:180`
-- Accumulates MVDR spatial spectrum: `Pmvdr(phi) += 1 / (a^H Rxx^{-1} a)`
+- Constructs covariance matrix $R_{xx}$ for each frequency bin
+- Scans azimuth grid $\phi = 0°:0.2°:180°$
+- Accumulates MVDR spatial spectrum: $$P_{mvdr}(\phi) = \sum_f \frac{1}{\mathbf{a}^H R_{xx}^{-1} \mathbf{a}}$$
 
 Key configuration (code2):
 - STFT: `win=1024`, `overlap=0.75` (hop=256), Kaiser window
@@ -73,7 +75,7 @@ Key configuration (code2):
 ### 3.2 Baseline 2: SRP-PHAT
 Implementation location: `doa_two_methods_code2(...)`  
 Characteristics (per script implementation):
-- Uses only 3 microphone pairs: `(1,2) (1,3) (1,4)`
+- Uses only 3 microphone pairs: $(1,2), (1,3), (1,4)$
 - For each frequency bin, applies PHAT weighting to cross-correlation and accumulates DOA consistency scores at candidate angles
 
 Key configuration (code2): Same as MVDR.
@@ -83,18 +85,18 @@ Key configuration (code2): Same as MVDR.
 ### 3.3 Improvement 1: W-SRP-PHAT (Weighted SRP-PHAT)
 Implementation location: `doa_srp_phat_wideband_farfield(...)`  
 Core improvement points (vs. standard SRP-PHAT):
-1) **Full microphone pair fusion**: Uses all `nchoosek(4,2)=6` pairs
-2) **Long baseline weighting**: `pair_w = (baseline_length / max)^2`  
+1) **Full microphone pair fusion**: Uses all $\binom{4}{2}=6$ pairs
+2) **Long baseline weighting**: $$w_{pair} = \left(\frac{b}{b_{max}}\right)^2$$
    - Rationale: Endfire directions depend more heavily on longer baselines for better TDOA resolvability
-3) **Frequency weighting**: `wf = (f/fmax)^(freq_alpha)`
-4) **Coherence weighting**: `coh^(coh_alpha)`
+3) **Frequency weighting**: $$w_f = \left(\frac{f}{f_{max}}\right)^{\alpha_f}$$
+4) **Coherence weighting**: $$w_{coh} = \rho^{\alpha_{coh}}$$
 5) **Energy-based frame selection (Energy VAD)**: Retains frames in the reference channel with energy ranking in the top **15%** within the target band; low-energy frames are automatically discarded
 
 Key configuration (code1):
-- STFT: `win=1024`, `overlap=0.75` (hop=256), Kaiser window
+- STFT: $\text{win}=1024$, $\text{overlap}=0.75$ (hop=256), Kaiser window
 - Frequency range: **800 Hz – 4500 Hz**
-- Scanning grid: `phiV = 0:0.2:180` (step size **0.2°**)
-- Weight exponents: `freq_alpha=2`, `coh_alpha=2`
+- Scanning grid: $\phi = 0°:0.2°:180°$ (step size **0.2°**)
+- Weight exponents: $\alpha_f=2$, $\alpha_{coh}=2$
 
 ---
 
@@ -106,19 +108,19 @@ This method:
 - Fuses each pair's direction estimate using **Weighted Least Squares (WLS)**
 
 Key features:
-- **Baseline-dependent weighting**: `pair_w = (baseline_length / max)^2` - longer baselines have higher weight
-- **Frequency weighting**: `wf = (f/fmax)^(freq_alpha)`
-- **Coherence weighting**: `coh^(coh_alpha)`
+- **Baseline-dependent weighting**: $$w_{pair} = \left(\frac{b}{b_{max}}\right)^2$$ - longer baselines have higher weight
+- **Frequency weighting**: $$w_f = \left(\frac{f}{f_{max}}\right)^{\alpha_f}$$
+- **Coherence weighting**: $$w_{coh} = \rho^{\alpha_{coh}}$$
 
 Key configuration (code1, GCC-WLS):
 - Frequency range: **800 Hz – 4500 Hz** (same as W-SRP-PHAT)
-- STFT: Same as W-SRP-PHAT (`win=1024, hop=256`)
+- STFT: Same as W-SRP-PHAT ($\text{win}=1024$, hop=256)
 - Frame selection: Top 15% energy frames
 - GCC parameters:
-  - `gcc_beta = 0.8` (PHAT exponent)
-  - `freq_alpha = 2` (frequency weighting exponent)
-  - `coh_alpha = 2` (coherence weighting exponent)
-  - `gcc_oversample = 16` (oversampling factor for tau search)
+  - $\beta_{PHAT} = 0.8$ (PHAT exponent)
+  - $\alpha_f = 2$ (frequency weighting exponent)
+  - $\alpha_{coh} = 2$ (coherence weighting exponent)
+  - $\text{oversample} = 16$ (oversampling factor for time-delay search)
 - Angular grid: **0° : 0.2° : 180°** (0.2° resolution)
 
 ---
@@ -232,9 +234,8 @@ The evaluation conducted in this repository (computed via `compute_paper_metrics
 - **E_all**: Mean RMSE across all azimuth angles (global performance)
 - **E_EF**: Mean RMSE in end-fire regions [20°-40°, 140°-160°] (critical region performance)
 - **S_ACC_EF**: Mean Soft-Accuracy (S-ACC) in end-fire regions
-  - Formula: S-ACC(e) = 1 / (1 + (e/6)²) where e is angular error in degrees
+  - Formula: $\text{S-ACC}(e) = \dfrac{1}{1 + (e/6)^2}$ where $e$ is angular error in degrees
   - Provides continuous accuracy metric (0 to 1) instead of hard threshold
-  - At e=0°: S-ACC=1.0; at e=6°: S-ACC=0.5; at e=12°: S-ACC≈0.07
 - **Deg_Span**: Total angular span where performance degraded (S-ACC < 0.50)
   - Measured in degrees, accounts for non-uniform angle spacing
 
@@ -246,7 +247,17 @@ The evaluation conducted in this repository (computed via `compute_paper_metrics
 - **IsEndFire**: Binary flag indicating if angle is in end-fire region
 - **AngleWidthDeg**: Angular width (span) represented by this angle point
 
-### 9.3 Output Files
+### 9.3 Soft-Accuracy Metric Definition
+The **S-ACC** metric provides a continuous measure of estimation accuracy:
+$$\text{S-ACC}(e) = \frac{1}{1 + (e/6)^2}$$
+where $e$ is the angular error in degrees.
+- At $e=0°$: S-ACC = 1.0 (perfect estimation)
+- At $e=6°$: S-ACC = 0.5 (half accuracy)
+- At $e=12°$: S-ACC ≈ 0.07 (poor estimation)
+
+The **Deg_Span** metric measures the total angular range where $\text{S-ACC} < 0.50$, accounting for non-uniform angle spacing.
+
+### 9.4 Output Files
 The script generates two CSV files:
 - `paper_metrics_summary.csv`: Summary metrics for each method × condition
 - `paper_metrics_by_angle.csv`: Detailed per-angle breakdown
@@ -262,7 +273,3 @@ The script generates two CSV files:
 **Issues**: Welcome to report issues, reproduce experiments, or suggest improvements via GitHub Issues.
 
 ---
-
-## License
-
-This project is provided for research purposes. See LICENSE file for details.
