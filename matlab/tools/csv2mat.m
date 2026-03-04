@@ -1,3 +1,12 @@
+% ========================================================================
+% CSV2MAT: Convert DOA results CSV to MAT files
+% ========================================================================
+% This script reads DOA (Direction of Arrival) estimation results from a 
+% CSV file and separates them into two MAT files based on measurement distance:
+% - 1 meter recordings
+% - 2 meter recordings
+% ========================================================================
+
 clear; clc; close all;
 
 %% 1. Configuration

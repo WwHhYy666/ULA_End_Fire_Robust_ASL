@@ -1,13 +1,35 @@
+#!/usr/bin/env python3
+# ========================================================================
+# SPLIT_MERGED_TO_1S: Split long audio files into 1-second segments
+# ========================================================================
+# This script takes merged multi-second WAV files and splits them into
+# 1-second non-overlapping segments. Filename patterns like "XdYm_*.wav"
+# are parsed to preserve distance information (X degrees, Y meters) in
+# the output segment filenames.
+#
+# Features:
+#   - Parses filenames to extract angle and distance metadata
+#   - Creates numbered 1-second segments
+#   - Optional zero-padding for incomplete final segment
+#   - Skips existing segments unless --overwrite is specified
+# ========================================================================
+
 import argparse
 import re
 import wave
 from pathlib import Path
 
-
+# Regex to parse filename pattern: "XdYm_*.wav"
+# Extracts angle (X) and distance (Y meters)
 FILENAME_RE = re.compile(r"^(?P<x>\d{2,3})d(?P<y>\d)m_.*\.wav$", re.IGNORECASE)
 
-
 def parse_args() -> argparse.Namespace:
+    """
+    Parse command-line arguments.
+    
+    Returns:
+        argparse.Namespace: Parsed arguments with defaults
+    """
     parser = argparse.ArgumentParser(
         description="Split merged wav files into 1-second segments."
     )
@@ -37,6 +59,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """
+    Main function to split merged WAV files into 1-second segments.
+    
+    Processes all matching WAV files in the input directory and creates
+    new 1-second segment files in the output directory.
+    """
     args = parse_args()
     input_dir = args.input_dir.resolve()
     output_dir = args.output_dir.resolve()

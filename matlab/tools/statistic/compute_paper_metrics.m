@@ -1,3 +1,13 @@
+% ========================================================================
+% COMPUTE_PAPER_METRICS: Calculate comprehensive DOA accuracy metrics
+% ========================================================================
+% This script processes MAT files containing DOA estimation results and
+% computes detailed performance metrics including:
+% - Per-angle RMSE and Soft-Accuracy (S-ACC)
+% - End-fire region performance
+% - Degradation span (angles with poor performance)
+% ========================================================================
+
 clear; clc; close all;
 
 %% ===================== Config =====================

@@ -1,6 +1,16 @@
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %% Synchronize signals %% 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ========================================================================
+% SYNCHRONIZE_SIGNAL: Align two signals based on estimated TDOA
+% ========================================================================
+% This function synchronizes two signals (x and y) by estimating their 
+% Time Difference Of Arrival (TDOA) using Generalized Cross-Correlation (GCC)
+% and aligning them accordingly.
+%
+% Inputs:
+%   x, y : Input signals (column vectors)
+% 
+% Outputs:
+%   x_s, y_s : Synchronized signals of equal length
+% ========================================================================
 function [x_s, y_s] = synchronize_siganl(x,y)
 if length(y) > length(x)
     y = y(1 : length(x));

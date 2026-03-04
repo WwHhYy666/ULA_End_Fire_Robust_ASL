@@ -1,3 +1,13 @@
+% ========================================================================
+% STAS_RESULT: Print DOA Estimation Statistics
+% ========================================================================
+% This script loads DOA estimation results from a MAT file and computes
+% performance metrics including:
+% - Global RMSE (Root Mean Square Error)
+% - Accuracy at threshold (ACC@N degrees)
+% - End-fire region RMSE
+% ========================================================================
+
 clear; clc;
 
 %% ===================== Config =====================

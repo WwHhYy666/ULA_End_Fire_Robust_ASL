@@ -1,3 +1,12 @@
+% ========================================================================
+% MAIN DOA (Direction of Arrival) ESTIMATION SCRIPT
+% ========================================================================
+% This script performs Direction of Arrival (DOA) estimation for audio signals
+% using four methods: MVDR, SRP-PHAT, W-SRP-PHAT, and GCC-WLS.
+% The script processes multiple audio files from a specified directory and 
+% estimates the true angle of each audio file.
+% ========================================================================
+
 clear; clc; close all;
 addpath("func");
 
@@ -255,9 +264,12 @@ fprintf("Done. CSV saved to: %s\n", out_dir);
 %% ====================== Local Functions ======================
 
 function ang = parse_angle_from_filename(fname)
-% Try to parse true angle from filename.
-% Priority pattern: "20d..." -> angle=20
-% Fallback: first integer found
+% PARSE_ANGLE_FROM_FILENAME: Extract angle value from audio filename
+% Attempts to extract angle from filename patterns like "20d..." or "100d..."
+% Returns NaN if parsing fails or angle is outside valid range [0,180]
+% 
+% Input:  fname - Filename string
+% Output: ang   - Angle in degrees, or NaN if not found
     ang = nan;
     s = string(fname);
 
@@ -275,8 +287,11 @@ function ang = parse_angle_from_filename(fname)
 end
 
 function tau12 = tdoa_farfield(phi_deg_vec, m1, m2, rmic, c)
-% Far-field TDOA: tau12 = tau_m1 - tau_m2
-% Support phi as scalar or vector
+% TDOA_FARFIELD: Calculate Time Difference Of Arrival for far-field source
+% Computes TDOA between microphone pairs assuming far-field (plane wave) propagation
+% tau12 = tau_m1 - tau_m2 = -(U * d) / c
+% Input: phi as scalar or vector
+% Output: tau12 [N x 1] TDOA values
     phi = phi_deg_vec(:);
     U = [-cosd(phi), sind(phi), zeros(numel(phi),1)]; % [N x 3]
     d = rmic(m1,:) - rmic(m2,:);                      % [1 x 3]
@@ -284,7 +299,8 @@ function tau12 = tdoa_farfield(phi_deg_vec, m1, m2, rmic, c)
 end
 
 function phi_hat = refine_peak_parabolic(phiV, P)
-% Parabolic peak refinement on discrete spectrum
+% REFINE_PEAK_PARABOLIC: Refine peak location using parabolic interpolation
+% Performs parabolic interpolation around the discrete peak for sub-grid resolution
     [~, k] = max(P);
     if k <= 1 || k >= numel(P)
         phi_hat = phiV(k);
@@ -303,7 +319,8 @@ function phi_hat = refine_peak_parabolic(phiV, P)
 end
 
 function doa = doa_srp_phat_wideband_farfield(Yf_use, phiV, rmic, c, f_vect, start_f, end_f, plot_alpha, coh_alpha)
-% SRP-PHAT (far-field) using all pairs + baseline weighting + coherence weighting (CODE1)
+% DOA_SRP_PHAT_WIDEBAND_FARFIELD: Weighted SRP-PHAT for wideband DOA (CODE1 proposed)
+% Features: All pair processing, frequency-dependent weighting, coherence weighting
     M = size(rmic,1);
     phi_len = numel(phiV);
     P = zeros(phi_len,1);
@@ -355,7 +372,8 @@ function doa = doa_srp_phat_wideband_farfield(Yf_use, phiV, rmic, c, f_vect, sta
 end
 
 function doa = doa_gcc_wls_farfield(Yf_use, rmic, c, fs, win_size, f_vect, start_f, end_f, os, beta, freq_alpha, coh_alpha)
-% GCC-PHAT TDOA (oversampled) for each pair, then WLS fuse to DOA (far-field) (CODE1)
+% DOA_GCC_WLS_FARFIELD: GCC-PHAT TDOA with WLS fusion (CODE1 proposed)
+% Per-pair TDOA extraction via oversampled GCC-PHAT, then WLS fusion with IRLS refinement
     M = size(rmic,1);
 
     mic_pairs = nchoosek(1:M,2);
@@ -469,13 +487,13 @@ function doa = doa_gcc_wls_farfield(Yf_use, rmic, c, fs, win_size, f_vect, start
 
     cv = cos_list(valid);
     wv = w_list(valid);
-    u_hat = sum(wv .* cv) / sum(wv);  % 初始 WLS 估计
+    u_hat = sum(wv .* cv) / sum(wv);  
     
-    for iter = 1:3  % 迭代 3 次剔除离群点
+    for iter = 1:3  
         res = abs(cv - u_hat);
-        wv_irls = wv .* exp(-5 * res); % lambda = 5，呈指数级惩罚离群点
+        wv_irls = wv .* exp(-5 * res); % lambda = 5
         if sum(wv_irls) < 1e-9, break; end
-        u_hat = sum(wv_irls .* cv) / sum(wv_irls); % 重新计算共识
+        u_hat = sum(wv_irls .* cv) / sum(wv_irls); 
     end
     cos_hat = u_hat;
     % ===============================
@@ -485,11 +503,13 @@ function doa = doa_gcc_wls_farfield(Yf_use, rmic, c, fs, win_size, f_vect, start
 end
 
 % ==========================================================
-% ============ Code2 methods (UNMODIFIED EXCEPT NO MUSIC) ==
+% ============ CODE2 BASELINE METHODS (MVDR + SRP-PHAT) ==
 % ==========================================================
 function [est_mvdr, est_srp] = doa_two_methods_code2( ...
     Xall, ~, c, rmic, V, phiV, f_vect, start_f, end_f, ...
     win_size, hopSize, nfbands, window, mic_pairs, tau_pairs, keep_ratio)
+% DOA_TWO_METHODS_CODE2: Baseline MVDR and SRP-PHAT methods (CODE2 reference)
+% Compares two baseline far-field DOA methods: SRP-MVDR and SRP-PHAT
 
     M = size(rmic,1);
     phi_len = numel(phiV);
@@ -559,7 +579,8 @@ function [est_mvdr, est_srp] = doa_two_methods_code2( ...
 end
 
 function c = speed_of_sound(T_celsius, RH_percent, P_kPa)
-% Speed of sound in moist air using Cramer-style approximation.
+% SPEED_OF_SOUND: Calculate sound speed in moist air
+% Uses Cramer-style approximation accounting for temperature, humidity, and pressure
     h = max(min(RH_percent, 100), 0) / 100;
     P = P_kPa * 10;
 

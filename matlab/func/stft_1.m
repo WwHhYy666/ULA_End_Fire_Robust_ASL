@@ -1,53 +1,54 @@
 function Yf = stft_1(x, win_size, hopSize, nfbands, window)
-% STFT_1 多通道音频的短时傅里叶变换（适配DOA估计代码）
-% 输入参数：
-%   x        : 时域信号矩阵 [采样点数 x 通道数]
-%   win_size : STFT窗长（样本数）
-%   hopSize  : 帧移（样本数）
-%   nfbands  : 频点数量（= win_size/2 + 1）
-%   window   : 窗函数（列向量）
-% 输出参数：
-%   Yf       : STFT结果 [帧数 x 通道数 x 频点数] 复数矩阵
+% STFT_1 Short-Time Fourier Transform for multi-channel audio (compatible with DOA estimation code)
+% Inputs:
+%   x        : Time-domain signal matrix [nSamples x nChannels]
+%   win_size : STFT window length (in samples)
+%   hopSize  : Hop size / frame shift (in samples)
+%   nfbands  : Number of frequency bins (= win_size/2 + 1)
+%   window   : Window function (column vector)
+% Output:
+%   Yf       : STFT result [nFrames x nChannels x nfbands] complex matrix
 
-% 获取信号维度
+% Get signal dimensions
 [nSamples, nChannels] = size(x);
-% 计算总帧数
+
+% Compute total number of frames
 nFrames = fix((nSamples - win_size) / hopSize) + 1;
 
-% 初始化输出矩阵（帧数 x 通道数 x 频点数）
+% Initialize output matrix (nFrames x nChannels x nfbands)
 Yf = zeros(nFrames, nChannels, nfbands);
 
-% 逐通道进行STFT
+% Perform STFT channel by channel
 for ch = 1:nChannels
-    % 提取当前通道的时域信号
+    % Extract the time-domain signal for the current channel
     x_ch = x(:, ch);
-    
-    % 逐帧处理
+
+    % Process frame by frame
     for n = 1:nFrames
-        % 计算当前帧的起始位置
+        % Compute start and end indices for the current frame
         start_idx = (n - 1) * hopSize + 1;
         end_idx = start_idx + win_size - 1;
-        
-        % 防止越界（最后一帧可能不足窗长，补0）
+
+        % Prevent out-of-bounds access (if last frame is shorter than win_size, zero-pad)
         if end_idx > nSamples
             frame = zeros(win_size, 1);
             frame(1:(nSamples - start_idx + 1)) = x_ch(start_idx:end);
         else
             frame = x_ch(start_idx:end_idx);
         end
-        
-        % 加窗
+
+        % Apply window
         frame_win = frame .* window;
-        
-        % 傅里叶变换（只取正频率部分）
+
+        % FFT (keep positive-frequency part only)
         fft_frame = fft(frame_win);
-        fft_frame = fft_frame(1:nfbands);  % 对应0到fs/2的频率
-        
-        % 存入输出矩阵
+        fft_frame = fft_frame(1:nfbands);  % Corresponds to frequencies from 0 to fs/2
+
+        % Store into output array
         Yf(n, ch, :) = fft_frame;
     end
 end
 
-% 转换为复数矩阵（确保输出格式正确）
+% Convert to complex matrix (ensure correct output type)
 Yf = complex(Yf);
 end

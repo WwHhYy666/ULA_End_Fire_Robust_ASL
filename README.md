@@ -1,243 +1,268 @@
-# 关于全向麦克风构成小型线性阵列在端射方向 DOA 估计退化的环节
-**Endfire DOA degradation with a small linear omnidirectional microphone array**
+# Endfire DOA Degradation with a Small Linear Omnidirectional Microphone Array
 
-本仓库包含一套基于**实录英语语音多通道 WAV**的数据与 **MATLAB** 评测脚本，用于研究与复现：当使用**4 元全向麦克风小型线性阵列**进行声源定位（DOA, 0°–180°）时，端射（endfire）附近多种算法出现退化的原因与表现，并比较不同算法在各方位角条件下的误差分布。
+This repository contains a comprehensive dataset and MATLAB evaluation suite based on **real recorded multi-channel English speech WAV files** for investigating and reproducing the degradation phenomena of multiple DOA (Direction of Arrival) estimation algorithms when using a **4-element omnidirectional small linear microphone array** for acoustic source localization (DOA, 0°–180°). It also enables comparative analysis of error distributions across different algorithms and azimuth angles.
 
-本仓库评测的 4 种算法为：
-- **SRP-MVDR（MVDR 扫描）**：成熟基线算法（baseline）
-- **SRP-PHAT**：成熟基线算法（baseline）
-- **W-SRP-PHAT**：在 SRP-PHAT 基础上的加权/稳健改进（proposed）
-- **GCC-WLS（Stable+）**：基于 GCC 曲线 + 鲁棒加权最小二乘融合的改进（proposed）
+This repository evaluates **4 DOA estimation algorithms**:
+- **SRP-MVDR (MVDR Scanning)**: Mature baseline algorithm
+- **SRP-PHAT**: Mature baseline algorithm  
+- **W-SRP-PHAT**: Weighted/robust improvement over SRP-PHAT (proposed)
+- **GCC-WLS**: GCC curve + weighted least squares fusion (proposed)
 
-> 代码实现与批量评测入口：`measure.m`
-
----
-
-## 1. 数据集（WAV）要求
-
-### 1.1 多通道格式要求（脚本强依赖）
-`measure.m` 读取每个 `.wav` 后会检查通道数，并**只取前 4 个通道**作为阵列输入：
-- 需要 `>= 4` 通道，否则该文件会被跳过（skip）
-- 采样率：脚本内部统一到 **16 kHz**（如文件采样率不同会 `resample` 到 16 kHz）
-- 单段时长：你的数据为 1 s；脚本默认最多处理每条音频前 **3.0 s**（对 1 s 数据无影响）
-
-> ⚠️ 因此：公开数据时请明确说明“WAV 是 4 通道阵列录音（每通道对应一个麦克风）”，并给出通道顺序。
-
-### 1.2 命名规则与真值角解析
-脚本通过文件名解析真值角度（TrueAngle），优先匹配：
-- `(\d{1,3})d` 这样的模式（例如 `120d2m_014.wav` → TrueAngle=120）
-
-示例：
-- `120d2m_014.wav`：方位角 120°、距离 2 m、第 14 段（距离信息不参与当前统计）
-
-> 建议：确保所有文件名都包含 `"{azimuth}d{distance}m_{index}.wav"` 这种格式，以避免角度解析歧义。
-
-完整数据：通过网盘分享的文件：data 链接: https://pan.baidu.com/s/1cphwmxwBzt-lslcU0amuiQ?pwd=s8z7 提取码: s8z7
+> **Main entry point**: `measure.m` contains the core implementation and batch evaluation framework
 
 ---
 
-## 2. 阵列与实验配置（来自 measure.m）
+## 1. Dataset (WAV) Requirements
 
-### 2.1 阵列几何（Linear array, M=4）
-- 麦克风数量：**4**
-- 相邻间距：**0.035 m**
-- 阵列坐标（单位 m，沿 x 轴线性排布）：
+### 1.1 Multi-channel Format Requirements (Script Dependency)
+The `measure.m` script checks the number of channels after loading each `.wav` file and **only uses the first 4 channels** as array inputs:
+- Requires `>= 4` channels; files with fewer channels will be skipped
+- Sample rate: Internally standardized to **16 kHz** (files with different rates will be resampled to 16 kHz)
+- Duration per segment: Your data is 1 second; the script processes up to **3.0 seconds** per file (no effect on 1-second data)
+
+> ⚠️ **Important**: When sharing the public dataset, clearly specify "WAV files are 4-channel microphone array recordings (each channel corresponds to one microphone)" and provide the channel order.
+
+### 1.2 Naming Convention and Ground Truth Angle Parsing
+The script parses ground truth angle (TrueAngle) from filenames using the following priority:
+- Pattern `(\d{1,3})d` (e.g., `120d2m_014.wav` → TrueAngle=120)
+
+Examples:
+- `120d2m_014.wav`: Azimuth angle 120°, distance 2 m, segment 14 (distance information not used in current analysis)
+
+> **Recommendation**: Ensure all filenames follow the format `"{azimuth}d{distance}m_{index}.wav"` to avoid angle parsing ambiguity.
+
+**Complete dataset**: Available via cloud storage - Link: https://pan.baidu.com/s/1cphwmxwBzt-lslcU0amuiQ?pwd=s8z7
+
+---
+
+## 2. Array Configuration and Experimental Setup (from measure.m)
+
+### 2.1 Array Geometry (Linear array, M=4)
+- Number of microphones: **4**
+- Adjacent spacing: **0.035 m**
+- Array coordinates (in meters, linear along x-axis):
   - `[0, 0, 0]`
   - `[-0.035, 0, 0]`
   - `[-0.070, 0, 0]`
   - `[-0.105, 0, 0]`
 
-`W-SRP-PHAT` 与 `GCC-WLS` 使用**中心化坐标**（减去几何中心），基线方法使用原始坐标。
+W-SRP-PHAT and GCC-WLS use **centered coordinates** (minus geometric center); baseline methods use original coordinates.
 
-### 2.2 DOA 扫描范围
-- 角度范围：**0°–180°**
-- 默认假设：**远场（far-field）**、二维平面扫描（脚本内部等效固定仰角 `theta_s = 90°`）
+### 2.2 DOA Scanning Range
+- Angular range: **0°–180°**
+- Default assumption: **Far-field**, 2D planar scanning (script internally fixes elevation angle at `theta_s = 90°`)
 
-> 如果你希望支持 0°–360° 或近场模型，需要扩展方向向量/传播模型与真值定义。
-
----
-
-## 3. 4 种算法说明（实现细节对齐 measure.m）
-
-### 3.1 基线 1：MVDR 扫描（SRP-MVDR）
-实现位置：`measure.m` 中 `doa_two_methods_code2(...)`  
-核心思路：
-- 对每个频点构造协方差矩阵 `Rxx`
-- 扫描方位网格 `phiV2 = 0:1:180`
-- MVDR 空间谱累加：`Pmvdr(phi) += 1 / (a^H Rxx^{-1} a)`
-
-关键配置（code2）：
-- STFT：`win=512`，`overlap=0.5`（hop=256），Kaiser 窗
-- 频段：约 **1 kHz – 4 kHz**
-- 扫描步长：**1°**
-
-### 3.2 基线 2：SRP-PHAT
-实现位置：同 `doa_two_methods_code2(...)`  
-特点（按脚本实现）：
-- 只使用 3 组麦克风对：`(1,2) (1,3) (1,4)`
-- 对每个频点做 PHAT 加权互谱，并累加到各候选角度的延时一致性得分
-
-关键配置（code2）同 MVDR。
+> To support 0°–360° or near-field models, you need to extend the steering vectors/propagation model and ground truth definitions.
 
 ---
 
-### 3.3 改进 1：W-SRP-PHAT（Weighted SRP-PHAT）
-实现位置：`doa_srp_phat_wideband_farfield(...)`  
-核心改进点（相对标准 SRP-PHAT）：
-1) **全麦克风对融合**：使用全部 `nchoosek(4,2)=6` 对  
-2) **长基线加权**：`pair_w = (baseline_length / max)^2`  
-   - 直觉：端射方向更依赖较长基线提供更可分辨的时延差  
-3) **频率加权**：`wf = (f/fmax)^(freq_alpha)`  
-4) **相干性（coherence）加权**：`coh^(coh_alpha)`  
-5) **能量门控帧选择（Energy VAD）**：保留参考通道在目标频带中能量排名前 **30%** 的帧，低能量帧自动丢弃
+## 3. Four Algorithm Descriptions (Implementation Details Aligned with measure.m)
 
-关键配置（code1）：
-- STFT：`win=1024`，`overlap=0.75`（hop=256），Kaiser 窗
-- 频段：**800 Hz – 4500 Hz**
-- 扫描网格：`phiV = 0:0.2:180`（步长 **0.2°**）
-- 权重指数：`freq_alpha=2`，`coh_alpha=1`
+### 3.1 Baseline 1: MVDR Scanning (SRP-MVDR)
+Implementation location: `doa_two_methods_code2(...)` in `measure.m`  
+Core approach:
+- Constructs covariance matrix `Rxx` for each frequency bin
+- Scans azimuth grid `phiV = 0:0.2:180`
+- Accumulates MVDR spatial spectrum: `Pmvdr(phi) += 1 / (a^H Rxx^{-1} a)`
 
----
+Key configuration (code2):
+- STFT: `win=1024`, `overlap=0.75` (hop=256), Kaiser window
+- Frequency range: **800 Hz – 4500 Hz** (same as code1)
+- Scanning grid: **0° : 0.2° : 180°** (same as code1)
 
-### 3.4 改进 2：GCC-WLS（Stable+）
-实现位置：`doa_gcc_wls_farfield_v3(...)`  
-该方法可理解为：
-- 先构造每对麦克风的 **GCC(-PHAT) 时延相关曲线**（含频率/相干性加权与 oversampling）
-- 再用 **SRP-like** 在角度网格上做一次粗搜索得到若干候选初值
-- 最后进行 **guided peak picking**（在预测 tau 周围找峰）并把每对麦克风得到的 `u=cos(theta)` 观测用**鲁棒 WLS/Huber-IRLS**融合成最终角度
+### 3.2 Baseline 2: SRP-PHAT
+Implementation location: `doa_two_methods_code2(...)`  
+Characteristics (per script implementation):
+- Uses only 3 microphone pairs: `(1,2) (1,3) (1,4)`
+- For each frequency bin, applies PHAT weighting to cross-correlation and accumulates DOA consistency scores at candidate angles
 
-Stable+ 的“稳定性增强”（脚本注释明确指出避免“过度端射特化”导致曲线不自然）：
-- **Top-L 多初值**：从 SRP 得分中选 Top-3 且间隔 ≥ 5° 的候选起点，减少混响/多径导致的错误初始化
-- **自适应 tau 搜索窗**：在宽侧（broadside, u≈0）适当放大搜索窗；端射（|u|≈1）相对收紧
-- **MAD 离群剔除**：在 IRLS 融合前对 u-measurements 做 MAD outlier rejection，避免单个坏麦对主导结果
-- **Huber IRLS 融合**：对残差大的观测降低权重，提升鲁棒性
-
-关键配置（code1, GCC-WLS）：
-- GCC 频段：**1000 Hz – 4200 Hz**
-- STFT：同 W-SRP-PHAT（`win=1024, hop=256`）
-- 帧选择：能量 Top 30% + MSC Top 60%
-- GCC 参数：
-  - `gcc_beta = 0.7`（PHAT 幂次）
-  - `gcc_freq_alpha = 3`，`gcc_coh_alpha = 1`
-  - `gcc_oversample = 16`
-- 角度网格（端射更密）：
-  - `0:0.10:25`
-  - `25.25:0.25:154.75`
-  - `155:0.10:180`
-- 鲁棒融合参数：
-  - `irls_iter = 8`
-  - `guided_iters = 2`
-  - `huber_k_u = 0.08`
-  - `psr_delta = 1.0`（PSR 权重指数）
-  - `tau_win_ratio = 0.18`（基础 tau 搜索窗比例）
+Key configuration (code2): Same as MVDR.
 
 ---
 
-## 4. 快速运行（Batch Evaluation）
+### 3.3 Improvement 1: W-SRP-PHAT (Weighted SRP-PHAT)
+Implementation location: `doa_srp_phat_wideband_farfield(...)`  
+Core improvement points (vs. standard SRP-PHAT):
+1) **Full microphone pair fusion**: Uses all `nchoosek(4,2)=6` pairs
+2) **Long baseline weighting**: `pair_w = (baseline_length / max)^2`  
+   - Rationale: Endfire directions depend more heavily on longer baselines for better TDOA resolvability
+3) **Frequency weighting**: `wf = (f/fmax)^(freq_alpha)`
+4) **Coherence weighting**: `coh^(coh_alpha)`
+5) **Energy-based frame selection (Energy VAD)**: Retains frames in the reference channel with energy ranking in the top **15%** within the target band; low-energy frames are automatically discarded
 
-### 4.1 运行前修改路径
-打开 `measure.m`，修改：
+Key configuration (code1):
+- STFT: `win=1024`, `overlap=0.75` (hop=256), Kaiser window
+- Frequency range: **800 Hz – 4500 Hz**
+- Scanning grid: `phiV = 0:0.2:180` (step size **0.2°**)
+- Weight exponents: `freq_alpha=2`, `coh_alpha=2`
+
+---
+
+### 3.4 Improvement 2: GCC-WLS
+Implementation location: `doa_gcc_wls_farfield(...)`  
+This method:
+- Constructs **GCC(-PHAT) time-delay correlation curves** for each microphone pair (with frequency/coherence weighting and oversampling)
+- Applies per-pair TDOA extraction via oversampled cross-correlation
+- Fuses each pair's direction estimate using **Weighted Least Squares (WLS)**
+
+Key features:
+- **Baseline-dependent weighting**: `pair_w = (baseline_length / max)^2` - longer baselines have higher weight
+- **Frequency weighting**: `wf = (f/fmax)^(freq_alpha)`
+- **Coherence weighting**: `coh^(coh_alpha)`
+
+Key configuration (code1, GCC-WLS):
+- Frequency range: **800 Hz – 4500 Hz** (same as W-SRP-PHAT)
+- STFT: Same as W-SRP-PHAT (`win=1024, hop=256`)
+- Frame selection: Top 15% energy frames
+- GCC parameters:
+  - `gcc_beta = 0.8` (PHAT exponent)
+  - `freq_alpha = 2` (frequency weighting exponent)
+  - `coh_alpha = 2` (coherence weighting exponent)
+  - `gcc_oversample = 16` (oversampling factor for tau search)
+- Angular grid: **0° : 0.2° : 180°** (0.2° resolution)
+
+---
+
+## 4. Quick Start (Batch Evaluation)
+
+### 4.1 Modify Paths Before Running
+Open `measure.m` and update:
 ```matlab
-audio_dir = "...\wav_split_1m";   % 你的 wav 数据目录
-out_dir   = "...\End-Fire";       % 输出结果目录
+audio_dir = "...\wav_split_1m";   % Your WAV data directory
+out_dir   = "...\End-Fire";       % Output results directory
 ```
 
 ---
 
-## 5. 目录结构（Directory layout）
+## 5. Directory Structure
 
-下面是一个推荐目录结构（你也可以按现有结构上传，但建议保持清晰）：
+Below is a recommended directory layout (you can also keep your current structure, but maintaining clarity is recommended):
 
-```text
-
+```
+.
 ├── data/
-
-│ └── wav/ # 音频数据（.wav）
-
+│   └── wav/                 # Audio data (.wav files)
 ├── matlab/
-
-│ ├── measure.m # 主评测脚本
-
-│ ├── csv2mat.m # 工具：CSV -> MAT
-
-│ ├── stas\_result.m # 工具：统计
-
-│ └── draw.m # 工具：绘图
-
-├── results/ # 输出结果（运行后生成）
-
+│   ├── experiment/
+│   │   └── measure.m        # Main evaluation script
+│   ├── func/
+│   │   ├── stft_1.m
+│   │   ├── STFT.m
+│   │   ├── STFTInv.m
+│   │   └── synchronize_signal.m
+│   └── tools/
+│       ├── csv2mat.m        # Tool: CSV -> MAT conversion
+│       ├── figure/
+│       │   └── draw.m       # Tool: Visualization
+│       └── statistic/
+│           ├── compute_paper_metrics.m
+│           └── stas_result.m # Tool: Statistics
+├── python/
+│   └── tools/
+│       ├── datapre/
+│       │   ├── pcm2wav.py
+│       │   ├── split_merged_to_1s.py
+│       │   └── trim_silence.py
+│       └── figure/
+│           └── plot_scene.py
+├── runs/
+│   └── results/             # Output results (generated after running)
 ├── LICENSE
-
 └── README.md
 ```
 
-> 如果你不想移动文件，也可以在 `measure.m` 里配置数据路径；README 里给了通用的运行方式。
+> If you prefer not to move files, you can configure data paths directly in `measure.m`.
 
 ---
 
-## 6. 环境依赖（Requirements）
+## 6. Environment Requirements
 
-- MATLAB：建议 R2025
-- 可能用到的工具箱（按需填写）：
+- **MATLAB**: R2018b or later (R2025+ recommended)
+- Optional toolboxes (as needed):
+  - Signal Processing Toolbox
+  - DSP System Toolbox (for advanced filtering if needed)
 
 ---
 
-## 7. 快速开始（Quick Start）
+## 7. Quick Start Guide
 
-### 7.1 获取代码
+### 7.1 Clone Repository
 
 ```bash
-
 git clone https://github.com/<your-username>/<repo-name>.git
-
 cd <repo-name>
 ```
 
-### 7.2 在 MATLAB 中运行
+### 7.2 Run in MATLAB
 
-* 打开 MATLAB，将当前路径切到仓库根目录（或 matlab/ 目录）
-
-* 添加路径：
-
-```bash
-
+1. Open MATLAB and set the current working directory to the repository root (or `matlab/` subdirectory)
+2. Add paths:
+```matlab
 addpath(genpath(pwd));
 ```
+3. Run the main evaluation script:
+```matlab
+measure
+```
 
-* 运行主评测脚本measure.m
-
-如果 measure.m 需要你配置音频路径/输出路径，通常在脚本开头会有类似 DATA\_DIR / OUT\_DIR 的变量；请按你的实际目录修改。
-
----
-
-## 8.实验流程建议（Suggested pipeline）
-
-### 8.1 一个典型的流程如下（按需执行）：
-算法评测（measure.m） --> 结果格式转换（如果 measure 输出为 CSV， csv2mat.m） --> 全局统计(stas\_result.m) --> 数据可视化 (draw.m)
+If `measure.m` requires you to configure audio/output paths, these are typically defined as variables at the script's beginning (e.g., `audio_dir`, `out_dir`). Modify these according to your directory structure.
 
 ---
 
-## 9. 输出与指标（Outputs \& metrics）
+## 8. Suggested Experimental Pipeline
 
-本仓库的评测通常会关心（示例，可按你脚本实际输出调整）：
-
-角度误差：|θ\_est - θ\_gt|
-
-平均/中位数误差、RMSE
-
-命中率：误差 ≤ 某阈值（例如 5° / 10°）
-
-端射区域 vs 非端射区域的性能差异曲线/热力图
+A typical workflow (execute as needed):
+```
+Algorithm Evaluation (measure.m) 
+    ↓
+Result Format Conversion (csv2mat.m if needed)
+    ↓
+Global Statistics (stas_result.m)
+    ↓
+Data Visualization (draw.m)
+```
 
 ---
 
-## 10. 联系方式（Contact）
+## 9. Outputs and Metrics
 
-Maintainer: WwHhYy666
+The evaluation conducted in this repository (computed via `compute_paper_metrics.m`) produces two sets of metrics:
 
-Email: 2540160476@qq.com,3191479712@qq.com
+### 9.1 Summary Metrics (per method, per condition)
+- **E_all**: Mean RMSE across all azimuth angles (global performance)
+- **E_EF**: Mean RMSE in end-fire regions [20°-40°, 140°-160°] (critical region performance)
+- **S_ACC_EF**: Mean Soft-Accuracy (S-ACC) in end-fire regions
+  - Formula: S-ACC(e) = 1 / (1 + (e/6)²) where e is angular error in degrees
+  - Provides continuous accuracy metric (0 to 1) instead of hard threshold
+  - At e=0°: S-ACC=1.0; at e=6°: S-ACC=0.5; at e=12°: S-ACC≈0.07
+- **Deg_Span**: Total angular span where performance degraded (S-ACC < 0.50)
+  - Measured in degrees, accounts for non-uniform angle spacing
 
-Issues: 欢迎在 GitHub Issues 中反馈问题/复现实验差异/改进建议
+### 9.2 Per-Angle Metrics (for each azimuth angle)
+- **AngleDeg**: Azimuth angle in degrees
+- **RMSE**: Root Mean Square Error at this angle
+- **S_ACC**: Soft-Accuracy at this angle
+- **N**: Number of test samples at this angle
+- **IsEndFire**: Binary flag indicating if angle is in end-fire region
+- **AngleWidthDeg**: Angular width (span) represented by this angle point
 
+### 9.3 Output Files
+The script generates two CSV files:
+- `paper_metrics_summary.csv`: Summary metrics for each method × condition
+- `paper_metrics_by_angle.csv`: Detailed per-angle breakdown
 
+---
 
+## 10. Contact Information
+
+**Maintainers**: WwHhYy666
+
+**Email**: 2540160476@qq.com, 3191479712@qq.com
+
+**Issues**: Welcome to report issues, reproduce experiments, or suggest improvements via GitHub Issues.
+
+---
+
+## License
+
+This project is provided for research purposes. See LICENSE file for details.

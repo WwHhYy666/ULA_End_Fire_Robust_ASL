@@ -1,43 +1,69 @@
+#!/usr/bin/env python3
+# ========================================================================
+# PCM2WAV: Convert multi-channel PCM audio files to WAV format
+# ========================================================================
+# This script converts raw PCM audio files (16-bit, 6-channel, 16kHz)
+# to WAV format for easier processing and analysis.
+#
+# Configuration:
+#   - Input: Raw PCM files from PCM_DIR
+#   - Output: WAV files to WAV_DIR
+#   - Format: 16-bit integer PCM, 16 kHz sample rate, 6 channels
+# ========================================================================
+
 import os
 import numpy as np
 from scipy.io.wavfile import write
 
-# 配置参数
+# ===== Configuration Parameters =====
 PCM_DIR = "C:\\Users\\25401\\Desktop\\acoustic\\ssl\\data_exp\\pcm_audio"
 WAV_DIR = os.path.join(os.path.dirname(PCM_DIR), "wav_audio")
-SAMPLE_RATE = 16000
-NUM_CHANNELS = 6
-DTYPE = np.int16  # 假设是16位PCM
+SAMPLE_RATE = 16000  # Sample rate in Hz
+NUM_CHANNELS = 6  # Number of audio channels
+DTYPE = np.int16  # Data type: 16-bit signed integer
 
 def pcm_to_wav(pcm_file_path):
+    """
+    Convert a single PCM file to WAV format.
+    
+    Args:
+        pcm_file_path (str): Full path to the input PCM file
+    
+    Reads raw PCM data, validates frame alignment, converts to numpy array,
+    and writes the result as a WAV file.
+    """
     with open(pcm_file_path, 'rb') as f:
         raw_data = f.read()
 
-    # 计算样本数（每个样本2字节 * 6通道）
+    # Compute number of samples (2 bytes per sample * 6 channels)
     bytes_per_sample = np.dtype(DTYPE).itemsize
     frame_size_bytes = bytes_per_sample * NUM_CHANNELS
     total_samples = len(raw_data) // frame_size_bytes
     remainder = len(raw_data) % frame_size_bytes
 
     if remainder:
-        print(f"⚠️ 警告: {pcm_file_path} 数据长度不完整，已截断 {remainder} 字节后继续转换。")
+        print(f"⚠️ Warning: {pcm_file_path} has incomplete data length; truncated {remainder} bytes and continuing conversion.")
         raw_data = raw_data[: total_samples * frame_size_bytes]
 
-    # 将原始数据转为 int16 数组
+    # Convert raw bytes to an int16 array
     audio_array = np.frombuffer(raw_data, dtype=DTYPE)
 
-    # 重塑为 (samples, channels)
+    # Reshape to (samples, channels)
     audio_array = audio_array.reshape((total_samples, NUM_CHANNELS))
 
-    # 输出 WAV 文件路径
+    # Output WAV file path
     wav_file_name = os.path.splitext(os.path.basename(pcm_file_path))[0] + ".wav"
     wav_file_path = os.path.join(WAV_DIR, wav_file_name)
 
-    # 写入 WAV 文件
+    # Write WAV file
     write(wav_file_path, SAMPLE_RATE, audio_array)
-    print(f"✅ 已转换: {pcm_file_path} -> {wav_file_path}")
+    print(f"✅ Converted: {pcm_file_path} -> {wav_file_path}")
 
 def main():
+    """
+    Main conversion routine.
+    Iterates through all PCM files in PCM_DIR and converts them to WAV format.
+    """
     os.makedirs(WAV_DIR, exist_ok=True)
 
     for filename in os.listdir(PCM_DIR):
